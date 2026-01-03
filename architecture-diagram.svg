@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <style>
+      .title { font: bold 24px sans-serif; fill: #2c3e50; }
+      .subtitle { font: 16px sans-serif; fill: #34495e; }
+      .box { fill: #3498db; stroke: #2980b9; stroke-width: 2; }
+      .storage-box { fill: #e74c3c; stroke: #c0392b; stroke-width: 2; }
+      .process-box { fill: #2ecc71; stroke: #27ae60; stroke-width: 2; }
+      .text { font: 14px sans-serif; fill: white; text-anchor: middle; }
+      .label { font: 12px sans-serif; fill: #7f8c8d; }
+      .arrow { stroke: #34495e; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#34495e" />
+    </marker>
+  </defs>
+  
+  <!-- Title -->
+  <text x="400" y="30" class="title" text-anchor="middle">PDF-LLM Processing Pipeline</text>
+  <text x="400" y="55" class="subtitle" text-anchor="middle">Production Data Engineering Architecture</text>
+  
+  <!-- Layer 1: API -->
+  <rect x="250" y="80" width="300" height="60" rx="5" class="box"/>
+  <text x="400" y="105" class="text">Flask REST API</text>
+  <text x="400" y="125" class="label">POST /upload | GET /documents | GET /status</text>
+  
+  <!-- Arrow -->
+  <path d="M 400 140 L 400 170" class="arrow"/>
+  
+  <!-- Layer 2: Processing Pipeline -->
+  <rect x="150" y="180" width="500" height="180" rx="5" class="process-box"/>
+  <text x="400" y="205" class="text">Processing Pipeline</text>
+  
+  <!-- Process Steps -->
+  <g transform="translate(160, 220)">
+    <rect x="0" y="0" width="110" height="40" rx="3" fill="#27ae60" stroke="#1e8449" stroke-width="1"/>
+    <text x="55" y="25" class="text" font-size="11">1. Upload PDF</text>
+  </g>
+  
+  <g transform="translate(180, 220)">
+    <path d="M 100 20 L 130 20" class="arrow"/>
+  </g>
+  
+  <g transform="translate(290, 220)">
+    <rect x="0" y="0" width="110" height="40" rx="3" fill="#27ae60" stroke="#1e8449" stroke-width="1"/>
+    <text x="55" y="25" class="text" font-size="11">2. Extract Text</text>
+  </g>
+  
+  <g transform="translate(310, 220)">
+    <path d="M 100 20 L 130 20" class="arrow"/>
+  </g>
+  
+  <g transform="translate(420, 220)">
+    <rect x="0" y="0" width="110" height="40" rx="3" fill="#27ae60" stroke="#1e8449" stroke-width="1"/>
+    <text x="55" y="25" class="text" font-size="11">3. Chunk Text</text>
+  </g>
+  
+  <!-- Second row -->
+  <g transform="translate(160, 280)">
+    <rect x="0" y="0" width="110" height="40" rx="3" fill="#27ae60" stroke="#1e8449" stroke-width="1"/>
+    <text x="55" y="15" class="text" font-size="11">4. Create</text>
+    <text x="55" y="30" class="text" font-size="11">Parquet</text>
+  </g>
+  
+  <g transform="translate(180, 280)">
+    <path d="M 100 20 L 130 20" class="arrow"/>
+  </g>
+  
+  <g transform="translate(290, 280)">
+    <rect x="0" y="0" width="110" height="40" rx="3" fill="#27ae60" stroke="#1e8449" stroke-width="1"/>
+    <text x="55" y="15" class="text" font-size="11">5. Upload to</text>
+    <text x="55" y="30" class="text" font-size="11">Drive</text>
+  </g>
+  
+  <g transform="translate(310, 280)">
+    <path d="M 100 20 L 130 20" class="arrow"/>
+  </g>
+  
+  <g transform="translate(420, 280)">
+    <rect x="0" y="0" width="110" height="40" rx="3" fill="#27ae60" stroke="#1e8449" stroke-width="1"/>
+    <text x="55" y="15" class="text" font-size="11">6. Track</text>
+    <text x="55" y="30" class="text" font-size="11">Status</text>
+  </g>
+  
+  <!-- Arrow -->
+  <path d="M 400 360 L 400 390" class="arrow"/>
+  
+  <!-- Layer 3: Storage -->
+  <g>
+    <!-- PostgreSQL -->
+    <rect x="50" y="400" width="180" height="150" rx="5" class="storage-box"/>
+    <text x="140" y="425" class="text">PostgreSQL Database</text>
+    <text x="140" y="450" class="label">• Document metadata</text>
+    <text x="140" y="470" class="label">• Processing status</text>
+    <text x="140" y="490" class="label">• File locations</text>
+    <text x="140" y="510" class="label">• Page/word counts</text>
+    <text x="140" y="530" class="label">• Timestamps</text>
+    
+    <!-- Google Drive -->
+    <rect x="260" y="400" width="280" height="150" rx="5" class="storage-box"/>
+    <text x="400" y="425" class="text">Google Drive (Cloud Storage)</text>
+    <text x="400" y="450" class="label">📁 upload/ → staging/ → processing/</text>
+    <text x="400" y="470" class="label">📁 processed/ (completed PDFs)</text>
+    <text x="400" y="490" class="label">📁 parquet/ (LLM-ready chunks)</text>
+    <text x="400" y="520" class="label">OAuth2 authenticated</text>
+    
+    <!-- Docker -->
+    <rect x="570" y="400" width="180" height="150" rx="5" class="storage-box"/>
+    <text x="660" y="425" class="text">Docker Container</text>
+    <text x="660" y="450" class="label">• PostgreSQL 15</text>
+    <text x="660" y="470" class="label">• Persistent volumes</text>
+    <text x="660" y="490" class="label">• Isolated environment</text>
+    <text x="660" y="510" class="label">• Docker Compose</text>
+  </g>
+  
+  <!-- Tech Stack Badge -->
+  <text x="400" y="580" class="label" text-anchor="middle">Python • Flask • SQLAlchemy • Google Drive API • PyPDF2 • Pandas • PyArrow • Docker</text>
+</svg>
