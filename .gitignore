@@ -1,0 +1,39 @@
+# Sensitive files
+credentials.json
+token.json
+.env
+
+# Database
+data/postgres/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+*.log
+temp_*
+test_*.txt
+test_*.pdf
+*.parquet
+
+# Docker
+.dockerignore
