@@ -1,54 +1,170 @@
+"""
+PDF Processing Module - UPDATED with Real Extraction
+Extracts text, metadata, and creates LLM-ready chunks from PDF files
+"""
+
 import PyPDF2
 import re
-import os
-from typing import List, Dict
+from datetime import datetime
+from typing import Dict, List, Tuple
+import io
+
 
 class PDFProcessor:
-    """Extract and process text from PDF files"""
+    """Processes PDF files to extract text and metadata"""
     
-    def __init__(self):
-        pass
-    
-    def extract_text(self, pdf_path: str) -> str:
+    def __init__(self, chunk_size: int = 500, overlap: int = 50):
         """
-        Extract all text from a PDF file
+        Initialize PDF processor
         
         Args:
-            pdf_path: Path to PDF file
+            chunk_size: Number of words per chunk for LLM processing
+            overlap: Number of words to overlap between chunks
+        """
+        self.chunk_size = chunk_size
+        self.overlap = overlap
+    
+    def extract_text_from_pdf(self, pdf_file_path: str) -> Tuple[str, Dict]:
+        """
+        Extract all text and metadata from a PDF file
+        
+        Args:
+            pdf_file_path: Path to the PDF file
             
         Returns:
-            Extracted text as string
+            Tuple of (full_text, metadata_dict)
         """
-        print(f"📄 Extracting text from: {pdf_path}")
-        
-        text = ""
-        
         try:
-            with open(pdf_path, 'rb') as file:
-                # Create PDF reader
+            with open(pdf_file_path, 'rb') as file:
                 pdf_reader = PyPDF2.PdfReader(file)
                 
-                # Get number of pages
-                num_pages = len(pdf_reader.pages)
-                print(f"  Found {num_pages} page(s)")
+                # Extract metadata
+                metadata = self._extract_metadata(pdf_reader)
                 
-                # Extract text from each page
-                for page_num in range(num_pages):
+                # Extract text from all pages
+                full_text = ""
+                for page_num in range(len(pdf_reader.pages)):
                     page = pdf_reader.pages[page_num]
                     page_text = page.extract_text()
-                    text += page_text + "\n"
-                    
-                print(f"✓ Extracted {len(text)} characters")
+                    full_text += page_text + "\n\n"
+                
+                # Clean the extracted text
+                full_text = self._clean_text(full_text)
+                
+                # Add text statistics to metadata
+                metadata['page_count'] = len(pdf_reader.pages)
+                metadata['word_count'] = len(full_text.split())
+                metadata['char_count'] = len(full_text)
+                
+                return full_text, metadata
                 
         except Exception as e:
-            print(f"✗ Error extracting text: {e}")
-            return ""
-        
-        return text
+            raise Exception(f"Error extracting PDF: {str(e)}")
     
-    def clean_text(self, text: str) -> str:
+    def extract_text_from_bytes(self, pdf_bytes: bytes) -> Tuple[str, Dict]:
         """
-        Clean and normalize text
+        Extract text and metadata from PDF bytes (for uploaded files)
+        
+        Args:
+            pdf_bytes: PDF file as bytes
+            
+        Returns:
+            Tuple of (full_text, metadata_dict)
+        """
+        try:
+            pdf_file = io.BytesIO(pdf_bytes)
+            pdf_reader = PyPDF2.PdfReader(pdf_file)
+            
+            # Extract metadata
+            metadata = self._extract_metadata(pdf_reader)
+            
+            # Extract text from all pages
+            full_text = ""
+            for page_num in range(len(pdf_reader.pages)):
+                page = pdf_reader.pages[page_num]
+                page_text = page.extract_text()
+                full_text += page_text + "\n\n"
+            
+            # Clean the extracted text
+            full_text = self._clean_text(full_text)
+            
+            # Add text statistics to metadata
+            metadata['page_count'] = len(pdf_reader.pages)
+            metadata['word_count'] = len(full_text.split())
+            metadata['char_count'] = len(full_text)
+            
+            return full_text, metadata
+            
+        except Exception as e:
+            raise Exception(f"Error extracting PDF from bytes: {str(e)}")
+    
+    def _extract_metadata(self, pdf_reader: PyPDF2.PdfReader) -> Dict:
+        """
+        Extract metadata from PDF
+        
+        Args:
+            pdf_reader: PyPDF2 reader object
+            
+        Returns:
+            Dictionary of metadata
+        """
+        metadata = {}
+        
+        try:
+            info = pdf_reader.metadata
+            if info:
+                metadata['title'] = info.get('/Title', 'Unknown')
+                metadata['author'] = info.get('/Author', 'Unknown')
+                metadata['subject'] = info.get('/Subject', 'Unknown')
+                metadata['creator'] = info.get('/Creator', 'Unknown')
+                metadata['producer'] = info.get('/Producer', 'Unknown')
+                
+                # Parse creation date if available
+                creation_date = info.get('/CreationDate')
+                if creation_date:
+                    metadata['creation_date'] = self._parse_pdf_date(creation_date)
+                else:
+                    metadata['creation_date'] = None
+        except:
+            # If metadata extraction fails, use defaults
+            metadata = {
+                'title': 'Unknown',
+                'author': 'Unknown',
+                'subject': 'Unknown',
+                'creator': 'Unknown',
+                'producer': 'Unknown',
+                'creation_date': None
+            }
+        
+        return metadata
+    
+    def _parse_pdf_date(self, date_str: str) -> str:
+        """
+        Parse PDF date format to ISO format
+        
+        Args:
+            date_str: PDF date string (format: D:YYYYMMDDHHmmSS)
+            
+        Returns:
+            ISO formatted date string
+        """
+        try:
+            # Remove 'D:' prefix if present
+            if date_str.startswith('D:'):
+                date_str = date_str[2:]
+            
+            # Extract date components
+            year = int(date_str[0:4])
+            month = int(date_str[4:6])
+            day = int(date_str[6:8])
+            
+            return f"{year}-{month:02d}-{day:02d}"
+        except:
+            return "Unknown"
+    
+    def _clean_text(self, text: str) -> str:
+        """
+        Clean extracted text
         
         Args:
             text: Raw extracted text
@@ -56,222 +172,127 @@ class PDFProcessor:
         Returns:
             Cleaned text
         """
-        print(f"🧹 Cleaning text...")
-        
-        # Remove extra whitespace
+        # Remove excessive whitespace
         text = re.sub(r'\s+', ' ', text)
         
-        # Remove special characters but keep punctuation
-        text = re.sub(r'[^\w\s.,!?;:()\-\'\"]+', '', text)
+        # Remove special characters that might cause issues
+        text = text.replace('\x00', '')
         
         # Strip leading/trailing whitespace
         text = text.strip()
         
-        print(f"✓ Cleaned text: {len(text)} characters")
-        
         return text
     
-    def chunk_text(self, text: str, chunk_size: int = 500, overlap: int = 50) -> List[Dict[str, any]]:
+    def chunk_text(self, text: str) -> List[Dict]:
         """
-        Split text into chunks for LLM processing
+        Split text into overlapping chunks for LLM processing
         
         Args:
-            text: Text to chunk
-            chunk_size: Target size of each chunk (in words)
-            overlap: Number of words to overlap between chunks
+            text: Full text to chunk
             
         Returns:
-            List of chunk dicts with text and metadata
+            List of chunk dictionaries with text and metadata
         """
-        print(f"✂️  Chunking text (chunk_size={chunk_size}, overlap={overlap})...")
-        
-        # Split into words
         words = text.split()
-        
         chunks = []
+        
+        if len(words) == 0:
+            return chunks
+        
+        # Create overlapping chunks
+        start = 0
         chunk_id = 0
         
-        # Create chunks with overlap
-        for i in range(0, len(words), chunk_size - overlap):
-            chunk_words = words[i:i + chunk_size]
+        while start < len(words):
+            # Get chunk of words
+            end = start + self.chunk_size
+            chunk_words = words[start:end]
             chunk_text = ' '.join(chunk_words)
             
-            # Calculate position percentage
-            position = (i / len(words)) * 100 if len(words) > 0 else 0
-            
+            # Create chunk dictionary
             chunk = {
                 'chunk_id': chunk_id,
                 'text': chunk_text,
                 'word_count': len(chunk_words),
-                'char_count': len(chunk_text),
-                'position': round(position, 2)
+                'start_word': start,
+                'end_word': min(end, len(words))
             }
             
             chunks.append(chunk)
+            
+            # Move to next chunk with overlap
+            start = end - self.overlap
             chunk_id += 1
-        
-        print(f"✓ Created {len(chunks)} chunks")
+            
+            # Prevent infinite loop if overlap >= chunk_size
+            if start <= chunk_id * (self.chunk_size - self.overlap):
+                start = chunk_id * (self.chunk_size - self.overlap)
         
         return chunks
     
-    def get_metadata(self, pdf_path: str) -> Dict[str, any]:
+    def process_pdf(self, pdf_path: str) -> Dict:
         """
-        Extract metadata from PDF
+        Complete PDF processing: extract text, metadata, and create chunks
         
         Args:
             pdf_path: Path to PDF file
             
         Returns:
-            Dict with metadata
+            Dictionary containing text, metadata, and chunks
         """
-        try:
-            with open(pdf_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                
-                metadata = {
-                    'page_count': len(pdf_reader.pages),
-                    'title': pdf_reader.metadata.get('/Title', 'Unknown') if pdf_reader.metadata else 'Unknown',
-                    'author': pdf_reader.metadata.get('/Author', 'Unknown') if pdf_reader.metadata else 'Unknown'
-                }
-                
-                return metadata
-                
-        except Exception as e:
-            print(f"✗ Error extracting metadata: {e}")
-            return {
-                'page_count': 0,
-                'title': 'Unknown',
-                'author': 'Unknown'
-            }
-    
-    def process_pdf(self, pdf_path: str, chunk_size: int = 500) -> Dict[str, any]:
-        """
-        Complete PDF processing pipeline
+        # Extract text and metadata
+        full_text, metadata = self.extract_text_from_pdf(pdf_path)
         
-        Args:
-            pdf_path: Path to PDF file
-            chunk_size: Size of text chunks
-            
-        Returns:
-            Dict with processed data and metadata
-        """
-        print("\n" + "=" * 60)
-        print(f"Processing PDF: {pdf_path}")
-        print("=" * 60)
+        # Create chunks
+        chunks = self.chunk_text(full_text)
         
-        # 1. Extract metadata
-        metadata = self.get_metadata(pdf_path)
+        # Add chunk count to metadata
+        metadata['chunk_count'] = len(chunks)
         
-        # 2. Extract text
-        raw_text = self.extract_text(pdf_path)
-        
-        if not raw_text:
-            return None
-        
-        # 3. Clean text
-        clean_text = self.clean_text(raw_text)
-        
-        # 4. Chunk text
-        chunks = self.chunk_text(clean_text, chunk_size=chunk_size)
-        
-        # 5. Prepare result
-        result = {
+        return {
+            'full_text': full_text,
             'metadata': metadata,
-            'raw_text': raw_text,
-            'clean_text': clean_text,
             'chunks': chunks,
-            'page_count': metadata['page_count'],
-            'word_count': len(clean_text.split()),
-            'chunk_count': len(chunks)
+            'processing_timestamp': datetime.now().isoformat()
         }
-        
-        print("\n✓ PDF processing complete!")
-        print(f"  Pages: {result['page_count']}")
-        print(f"  Words: {result['word_count']}")
-        print(f"  Chunks: {result['chunk_count']}")
-        
-        return result
     
-    def extract_text(self, pdf_path: str) -> str:
+    def process_pdf_bytes(self, pdf_bytes: bytes) -> Dict:
         """
-        Extract all text from a PDF file or text file
+        Complete PDF processing from bytes: extract text, metadata, and create chunks
         
         Args:
-            pdf_path: Path to PDF or text file
+            pdf_bytes: PDF file as bytes
             
         Returns:
-            Extracted text as string
+            Dictionary containing text, metadata, and chunks
         """
-        print(f"📄 Extracting text from: {pdf_path}")
+        # Extract text and metadata
+        full_text, metadata = self.extract_text_from_bytes(pdf_bytes)
         
-        text = ""
+        # Create chunks
+        chunks = self.chunk_text(full_text)
         
-        try:
-            # Check if it's a text file (for testing)
-            if pdf_path.endswith('.txt'):
-                with open(pdf_path, 'r', encoding='utf-8') as file:
-                    text = file.read()
-                print(f"✓ Extracted {len(text)} characters from text file")
-                return text
-            
-            # Otherwise process as PDF
-            with open(pdf_path, 'rb') as file:
-                # Create PDF reader
-                pdf_reader = PyPDF2.PdfReader(file)
-                
-                # Get number of pages
-                num_pages = len(pdf_reader.pages)
-                print(f"  Found {num_pages} page(s)")
-                
-                # Extract text from each page
-                for page_num in range(num_pages):
-                    page = pdf_reader.pages[page_num]
-                    page_text = page.extract_text()
-                    text += page_text + "\n"
-                    
-                print(f"✓ Extracted {len(text)} characters")
-                
-        except Exception as e:
-            print(f"✗ Error extracting text: {e}")
-            return ""
+        # Add chunk count to metadata
+        metadata['chunk_count'] = len(chunks)
         
-        return text
+        return {
+            'full_text': full_text,
+            'metadata': metadata,
+            'chunks': chunks,
+            'processing_timestamp': datetime.now().isoformat()
+        }
+
+
+# Example usage and testing
+if __name__ == "__main__":
+    """Test the PDF processor"""
     
-    def get_metadata(self, pdf_path: str) -> Dict[str, any]:
-        """
-        Extract metadata from PDF or estimate for text files
-        
-        Args:
-            pdf_path: Path to PDF or text file
-            
-        Returns:
-            Dict with metadata
-        """
-        try:
-            # For text files, create basic metadata
-            if pdf_path.endswith('.txt'):
-                return {
-                    'page_count': 1,
-                    'title': os.path.basename(pdf_path),
-                    'author': 'Test'
-                }
-            
-            # For PDFs, extract real metadata
-            with open(pdf_path, 'rb') as file:
-                pdf_reader = PyPDF2.PdfReader(file)
-                
-                metadata = {
-                    'page_count': len(pdf_reader.pages),
-                    'title': pdf_reader.metadata.get('/Title', 'Unknown') if pdf_reader.metadata else 'Unknown',
-                    'author': pdf_reader.metadata.get('/Author', 'Unknown') if pdf_reader.metadata else 'Unknown'
-                }
-                
-                return metadata
-                
-        except Exception as e:
-            print(f"✗ Error extracting metadata: {e}")
-            return {
-                'page_count': 0,
-                'title': 'Unknown',
-                'author': 'Unknown'
-            }
+    processor = PDFProcessor(chunk_size=500, overlap=50)
+    
+    print("PDF Processor initialized successfully!")
+    print(f"Chunk size: {processor.chunk_size} words")
+    print(f"Overlap: {processor.overlap} words")
+    print("\nReady to process PDF files.")
+    print("\nUsage:")
+    print("  result = processor.process_pdf('path/to/file.pdf')")
+    print("  result = processor.process_pdf_bytes(pdf_bytes)")

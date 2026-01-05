@@ -14,38 +14,11 @@ This project demonstrates a production-ready document processing pipeline that:
 - Provides REST API for all operations
 
 ## 🏗️ Architecture
-```
-┌─────────────────────────────────────────────────────────┐
-│                    PDF PIPELINE                          │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  📤 Flask REST API (Port 5000)                          │
-│     ├── POST /upload           Upload & process PDFs    │
-│     ├── GET  /documents        List all documents       │
-│     ├── GET  /documents/<id>   Get document details     │
-│     └── GET  /documents/<id>/status  Check status       │
-│                                                          │
-│  ↓                                                       │
-│                                                          │
-│  🔧 Processing Pipeline                                  │
-│     ├── Upload to Google Drive (upload/)                │
-│     ├── Move through stages (staging → processing)      │
-│     ├── Extract text (PyPDF2)                           │
-│     ├── Clean & normalize text                          │
-│     ├── Chunk for LLM (500 words, 50 overlap)           │
-│     ├── Create Parquet file                             │
-│     ├── Upload Parquet to Drive (parquet/)              │
-│     └── Move PDF to processed (processed/)              │
-│                                                          │
-│  ↓                                                       │
-│                                                          │
-│  💾 Data Storage                                         │
-│     ├── PostgreSQL: Metadata & tracking                 │
-│     ├── Google Drive: PDF files (5 folders)             │
-│     └── Google Drive: Parquet files                     │
-│                                                          │
-└─────────────────────────────────────────────────────────┘
-```
+
+
+![Architecture Diagram](architecture-diagram.svg)
+
+
 
 ## 📋 Tech Stack
 
